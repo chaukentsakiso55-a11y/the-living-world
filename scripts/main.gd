@@ -18,10 +18,18 @@ var hud: Label
 var help: Label
 var director_panel: Label
 var ground_material: StandardMaterial3D
+var lesson_ui: Control
+var lesson_text: Label
+var lesson_answer: LineEdit
+var lesson_feedback: Label
+var active_lesson := "maths_g10_linear"
+var progress: Dictionary = {}
 
 func _ready() -> void:
 	_build_world()
 	_build_ui()
+	_build_lesson_ui()
+	progress = GameSettings.load_progress()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func _material(color: Color) -> StandardMaterial3D:
@@ -118,7 +126,7 @@ func _build_ui() -> void:
 	canvas.add_child(hud)
 	help = Label.new()
 	help.position = Vector2(22, 652)
-	help.text = "WASD Move  |  Shift Run  |  F1 Director  |  Esc Quit"
+	help.text = "WASD Move  |  Shift Run  |  L Lesson  |  F1 Director  |  Esc Quit"
 	help.add_theme_color_override("font_color", Color.WHITE)
 	canvas.add_child(help)
 	director_panel = Label.new()
@@ -127,8 +135,59 @@ func _build_ui() -> void:
 	director_panel.add_theme_color_override("font_color", Color(1, 0.95, 0.65))
 	canvas.add_child(director_panel)
 
+func _build_lesson_ui() -> void:
+	var canvas := get_node("CanvasLayer") as CanvasLayer
+	lesson_ui = PanelContainer.new()
+	lesson_ui.position = Vector2(260, 95)
+	lesson_ui.custom_minimum_size = Vector2(760, 480)
+	canvas.add_child(lesson_ui)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 14)
+	lesson_ui.add_child(content)
+	lesson_text = Label.new()
+	lesson_text.custom_minimum_size = Vector2(720, 300)
+	lesson_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(lesson_text)
+	lesson_answer = LineEdit.new()
+	lesson_answer.placeholder_text = "Your answer"
+	content.add_child(lesson_answer)
+	var submit := Button.new()
+	submit.text = "Submit answer"
+	submit.pressed.connect(_submit_lesson)
+	content.add_child(submit)
+	lesson_feedback = Label.new()
+	lesson_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(lesson_feedback)
+	lesson_ui.visible = false
+
+func _toggle_lesson() -> void:
+	lesson_ui.visible = not lesson_ui.visible
+	if lesson_ui.visible:
+		var data := LessonLibrary.get_lesson(active_lesson)
+		lesson_text.text = "%s - Grade %s\\n%s\\n\\nObjective: %s\\n\\n%s\\n\\nQuestion: %s" % [data["subject"], data["grade"], data["title"], data["objective"], data["explanation"], data["question"]]
+		lesson_feedback.text = ""
+		lesson_answer.text = ""
+
+func _submit_lesson() -> void:
+	var data := LessonLibrary.get_lesson(active_lesson)
+	if LessonLibrary.check_answer(active_lesson, lesson_answer.text):
+		lesson_feedback.text = "Correct! Lesson completed."
+		var completed: Array = progress.get("completed_lessons", [])
+		if not completed.has(active_lesson):
+			completed.append(active_lesson)
+			progress["completed_lessons"] = completed
+			progress["correct_answers"] = int(progress.get("correct_answers", 0)) + 1
+			GameSettings.save_progress(progress)
+	else:
+		lesson_feedback.text = "Not quite. " + str(data["feedback"])
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_L:
+		_toggle_lesson()
+		return
+	if lesson_ui.visible:
 		return
 	match event.keycode:
 		KEY_F1:
@@ -160,6 +219,8 @@ func _process(delta: float) -> void:
 	var dt := minf(delta, 0.08)
 	elapsed += dt
 	world_minutes = fposmod(world_minutes + dt * time_multiplier, 1440)
+	if lesson_ui.visible:
+		return
 	var active := robot if robot_control else player
 	var direction := Vector2.ZERO
 	if Input.is_key_pressed(KEY_W):
