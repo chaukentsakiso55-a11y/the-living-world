@@ -1,6 +1,6 @@
 import math
 import random
-from panda3d.core import AmbientLight, DirectionalLight, Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter, TextNode, Vec3, WindowProperties
+from panda3d.core import AmbientLight, DirectionalLight, Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter, TextNode, Vec3, WindowProperties, ClockObject
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
 from direct.task import Task
@@ -137,7 +137,7 @@ class LivingWorld(ShowBase):
             self.win.setClearColor((0.05, 0.08, 0.16, 1) if self.night else (0.62, 0.79, 0.91, 1))
 
     def update(self, task):
-        dt = min(self.clock.getDt(), 0.08)
+        dt = min(ClockObject.getGlobalClock().getDt(), 0.08)
         self.elapsed += dt
         self.game_minutes = (self.game_minutes + dt * self.time_scale) % 1440
         active = self.robot if self.control_robot else self.student
