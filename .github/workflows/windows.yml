@@ -1,0 +1,36 @@
+name: Windows Game Export
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "project.godot"
+      - "scenes/**"
+      - "scripts/**"
+      - ".github/workflows/windows.yml"
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.4 and export templates
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.stable"
+          curl -fL --retry 3 -o /tmp/godot.zip "https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo mv /tmp/Godot_v4.4-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          curl -fL --retry 3 -o /tmp/templates.tpz "https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -r /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.4.stable/"
+      - name: Import game resources
+        run: godot --headless --path . --editor --quit
+      - name: Export Windows game
+        run: |
+          mkdir -p dist
+          godot --headless --path . --export-release "Windows Desktop" dist/TheLivingWorld.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TheLivingWorld-Windows
+          path: dist/
+          if-no-files-found: error
